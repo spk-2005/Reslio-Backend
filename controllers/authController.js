@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { auth } = require('../config/firebase');
+const jwt = require('jsonwebtoken');
 
 exports.registerOrLogin = async (req, res) => {
   try {
@@ -41,6 +42,37 @@ exports.registerOrLogin = async (req, res) => {
       success: false,
       error: 'Authentication failed',
     });
+  }
+};
+
+/**
+ * @desc    Authenticate admin user & get token
+ * @route   POST /api/auth/admin-login
+ * @access  Public
+ */
+exports.adminLogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  // For now, we use hardcoded credentials as requested.
+  // In a real application, you would look up an admin user in the database.
+  if (email === 'spk@111' && password === '123') {
+    // Credentials are correct, generate a JWT
+    const payload = {
+      id: 'admin_user', // A static ID for the admin
+      role: 'admin',
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: '1d', // Token expires in 1 day
+    });
+
+    res.json({
+      message: 'Admin login successful',
+      token,
+    });
+  } else {
+    // Credentials are incorrect
+    res.status(401).json({ message: 'Invalid admin credentials' });
   }
 };
 
