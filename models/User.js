@@ -7,6 +7,14 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    onboardingCompleted: {
+      type: Boolean,
+      default: false
+    },
+    onboardingStep: {
+      type: Number,
+      default: 1
+    },
     email: {
       type: String,
       required: true,
