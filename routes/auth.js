@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const admin = require('../config/firebaseAdmin');
+const admin = require('../config/firebase');
 const User = require('../models/User');
 
 // @desc    Sync user with DB after Firebase login

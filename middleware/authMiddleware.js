@@ -1,4 +1,4 @@
-const admin = require('../config/firebaseAdmin');
+const admin = require('../config/firebase');
 const User = require('../models/User');
 
 const protect = async (req, res, next) => {

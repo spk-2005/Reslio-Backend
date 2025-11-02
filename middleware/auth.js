@@ -1,4 +1,4 @@
-const { auth } = require('../config/firebase');
+const admin = require('../config/firebase');
 const User = require('../models/User');
 
 const authenticateUser = async (req, res, next) => {
@@ -9,7 +9,7 @@ const authenticateUser = async (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decodedToken = await auth.verifyIdToken(token);
+    const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
 
     const user = await User.findOne({ firebaseUid: decodedToken.uid });
