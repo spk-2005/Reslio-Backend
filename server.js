@@ -8,6 +8,7 @@ const templateRoutes = require('./routes/templates');
 const resumeRoutes = require('./routes/resumes');
 const portfolioRoutes = require('./routes/portfolios');
 const exportRoutes = require('./routes/export');
+const profileRoutes = require('./routes/profile');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       templates: '/api/templates',
+      profile: '/api/profile',
       resumes: '/api/resumes',
       portfolios: '/api/portfolios',
       export: '/api/export',
@@ -35,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/portfolios', portfolioRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/export', exportRoutes);
 
 app.use((err, req, res, next) => {

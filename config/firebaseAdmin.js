@@ -18,7 +18,4 @@ try {
   console.error('Firebase Admin initialization error:', error.message);
 }
 
-const auth = admin.auth();
-const storage = admin.storage();
-
-module.exports = { admin, auth, storage };
+module.exports = admin;

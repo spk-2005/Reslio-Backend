@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const admin = require('../config/firebase');
+const admin = require('../config/firebaseAdmin');
 const User = require('../models/User');
+const { adminLogin } = require('../controllers/authController');
 
 // @desc    Sync user with DB after Firebase login
 // @route   POST /api/auth/sync
@@ -79,5 +80,9 @@ router.post('/sync', async (req, res) => {
     });
   }
 });
+
+// @desc    Authenticate admin user & get token
+// @route   POST /api/auth/admin-login
+router.post('/admin-login', adminLogin);
 
 module.exports = router;
