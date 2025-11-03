@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const { auth } = require('../config/firebase');
+const { auth } = require('../config/firebaseAdmin');
 const jwt = require('jsonwebtoken');
 
 exports.registerOrLogin = async (req, res) => {

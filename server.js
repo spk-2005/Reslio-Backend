@@ -5,9 +5,11 @@ const connectDB = require('./config/database');
 
 const authRoutes = require('./routes/auth');
 const templateRoutes = require('./routes/templates');
+const userRoutes = require('./routes/users');
 const resumeRoutes = require('./routes/resumes');
 const portfolioRoutes = require('./routes/portfolios');
 const exportRoutes = require('./routes/export');
+const informationRoutes = require('./routes/information');
 const profileRoutes = require('./routes/profile');
 
 const app = express();
@@ -24,6 +26,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
+      users: '/api/users',
       templates: '/api/templates',
       profile: '/api/profile',
       resumes: '/api/resumes',
@@ -33,13 +36,16 @@ app.get('/', (req, res) => {
   });
 });
 
+// Mount all routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/portfolios', portfolioRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/export', exportRoutes);
 
+// Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({

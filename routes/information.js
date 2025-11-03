@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { getInformation, saveInformation } = require('../controllers/informationController');
-const authMiddleware = require('../middleware/authMiddleware'); // Assuming you have an auth middleware
+const { authenticateUser } = require('../middleware/auth');
 
 // All routes below require authentication
-router.use(authMiddleware);
+router.use(authenticateUser);
 
 // Get user's information
 router.get('/:userId', getInformation);

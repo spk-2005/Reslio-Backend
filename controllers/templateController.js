@@ -11,6 +11,14 @@ exports.getAllTemplates = async (req, res) => {
 
     const templates = await Template.find(query).sort({ createdAt: -1 });
 
+    if (!templates || templates.length === 0) {
+      // It's better to return an empty array than a 404 if no templates are found for a given type.
+      return res.status(200).json({
+        success: true,
+        templates: [],
+      });
+    }
+
     res.status(200).json({
       success: true,
       templates,

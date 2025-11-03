@@ -4,10 +4,9 @@ const admin = require('../config/firebaseAdmin');
 const User = require('../models/User');
 const { adminLogin } = require('../controllers/authController');
 
-// @desc    Sync user with DB after Firebase login
-// @route   POST /api/auth/sync
-// @access  Public (token is verified here)
-router.post('/sync', async (req, res) => {
+// @desc    Sync user with DB after Firebase login/signup
+// @route   POST /api/auth/sync-user
+router.post('/sync-user', async (req, res) => {
   try {
     // Support both Authorization header and request body
     const authHeader = req.headers.authorization;
@@ -84,5 +83,7 @@ router.post('/sync', async (req, res) => {
 // @desc    Authenticate admin user & get token
 // @route   POST /api/auth/admin-login
 router.post('/admin-login', adminLogin);
+
+
 
 module.exports = router;
