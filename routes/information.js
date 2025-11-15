@@ -7,8 +7,8 @@ const { authenticateUser } = require('../middleware/auth');
 router.use(authenticateUser);
 
 // Get user's information
-router.get('/:userId', getInformation);
+router.get('/', getInformation);
 // Save/Update user's information
-router.post('/', saveInformation); // Or router.put('/', saveInformation); if you prefer PUT for updates
+router.put('/', saveInformation);
 
 module.exports = router;

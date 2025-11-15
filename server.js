@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
+const { authenticateUser } = require('./middleware/auth'); // Import the auth middleware
 
 const authRoutes = require('./routes/auth');
 const templateRoutes = require('./routes/templates');
@@ -37,14 +38,15 @@ app.get('/', (req, res) => {
 });
 
 // Mount all routes
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/templates', templateRoutes);
-app.use('/api/resumes', resumeRoutes);
-app.use('/api/portfolios', portfolioRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/export', exportRoutes);
-
+app.use('/api/templates', authenticateUser, templateRoutes);
+app.use('/api/resumes', authenticateUser, resumeRoutes);
+app.use('/api/portfolios', authenticateUser, portfolioRoutes);
+app.use('/api/profile', authenticateUser, profileRoutes);
+app.use('/api/information', authenticateUser, informationRoutes);
+app.use('/api/export', authenticateUser, exportRoutes);
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);

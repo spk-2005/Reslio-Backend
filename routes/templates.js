@@ -5,14 +5,14 @@ const {
   getTemplateById,
   createTemplate,
 } = require('../controllers/templateController');
-const { authenticateAdmin } = require('../middleware/adminAuth');
+const { authenticateUser } = require('../middleware/auth');
 
 // Public routes to allow the mobile app to see templates
 
 // @desc    Get all templates, optionally filtered by type
 // @route   GET /api/templates
 // @access  Public
-router.get('/', getAllTemplates);
+router.get('/',  getAllTemplates);
 
 // @desc    Get a single template by its ID
 // @route   GET /api/templates/:id
