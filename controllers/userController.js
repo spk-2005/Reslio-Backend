@@ -5,14 +5,20 @@ const User = require('../models/User');
  * @route   GET /api/users
  * @access  Private/Admin
  */
+// In your userController.js
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-firebaseUid'); // Exclude sensitive fields
+    const users = await User.find().sort({ createdAt: -1 });
+    
     res.status(200).json({
       success: true,
       users,
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to fetch users' });
+    console.error('User fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch users',
+    });
   }
 };

@@ -73,3 +73,58 @@ exports.createTemplate = async (req, res) => {
     });
   }
 };
+
+exports.updateTemplate = async (req, res) => {
+  try {
+    const template = await Template.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      template,
+    });
+  } catch (error) {
+    console.error('Template update error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update template',
+    });
+  }
+};
+
+exports.deleteTemplate = async (req, res) => {
+  try {
+    const template = await Template.findByIdAndDelete(req.params.id);
+
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Template deleted successfully',
+    });
+  } catch (error) {
+    console.error('Template deletion error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete template',
+    });
+  }
+};
