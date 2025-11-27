@@ -36,7 +36,8 @@ app.get('/', (req, res) => {
     },
   });
 });
-
+const documentAnalysisRoutes = require('./routes/document-analysis');
+app.use('/api/document', documentAnalysisRoutes);
 // Mount all routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
