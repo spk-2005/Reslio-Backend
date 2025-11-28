@@ -1,19 +1,34 @@
 // backend/routes/document-analysis.js
 // Document analysis using FREE Google Gemini API
+// IMPROVED VERSION with better error handling
 
 const express = require('express');
 const router = express.Router();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+// Validate API key on startup
+if (!process.env.GOOGLE_API_KEY) {
+  console.error('⚠️  WARNING: GOOGLE_API_KEY is not set in environment variables!');
+  console.error('📝 Add GOOGLE_API_KEY to your Render environment variables');
+}
+
 // Initialize Gemini with your API key
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key');
 
 /**
- * POST /api/document/analyze
+ * POST /analyze
  * Analyzes a document and returns structured data using Gemini
  */
 router.post('/analyze', async (req, res) => {
   try {
+    // Validate API key
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'dummy-key') {
+      return res.status(500).json({
+        success: false,
+        error: 'Google API key is not configured. Please add GOOGLE_API_KEY to environment variables.',
+      });
+    }
+
     const { base64Data, mimeType } = req.body;
 
     if (!base64Data || !mimeType) {
@@ -23,30 +38,54 @@ router.post('/analyze', async (req, res) => {
       });
     }
 
-    console.log('📄 Analyzing document with Gemini, type:', mimeType);
+    console.log('📄 Analyzing document with Gemini');
+    console.log('📦 MIME type:', mimeType);
+    console.log('📏 Base64 length:', base64Data.length);
 
     // Use Gemini 1.5 Flash (fast and free)
+    // Updated model name for v1beta API
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-1.5-flash-latest',
       generationConfig: {
-        temperature: 0.2, // Lower temperature for more consistent output
+        temperature: 0.2,
       },
     });
 
     // Step 1: Extract text from document
-    console.log('🔍 Extracting text from document...');
+    console.log('🔍 Step 1: Extracting text from document...');
     
-    const extractResult = await model.generateContent([
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType,
+    let extractResult;
+    try {
+      extractResult = await model.generateContent([
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeType,
+          },
         },
-      },
-      {
-        text: 'Extract all text content from this document. Return only the raw text without any formatting, commentary, or markdown.',
-      },
-    ]);
+        {
+          text: 'Extract all text content from this document. Return only the raw text without any formatting, commentary, or markdown.',
+        },
+      ]);
+    } catch (error) {
+      console.error('❌ Gemini API error during text extraction:', error);
+      
+      if (error.message?.includes('API_KEY_INVALID')) {
+        return res.status(500).json({
+          success: false,
+          error: 'Invalid Google API key. Please check your GOOGLE_API_KEY environment variable.',
+        });
+      }
+      
+      if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
+        return res.status(429).json({
+          success: false,
+          error: 'API quota exceeded. Please try again in a few moments.',
+        });
+      }
+      
+      throw error;
+    }
 
     const extractedText = extractResult.response.text();
     console.log('✅ Text extracted, length:', extractedText.length);
@@ -54,14 +93,16 @@ router.post('/analyze', async (req, res) => {
     if (!extractedText || extractedText.trim().length < 50) {
       return res.status(400).json({
         success: false,
-        error: 'Could not extract sufficient text from document',
+        error: 'Could not extract sufficient text from document. Please ensure the document contains readable text.',
       });
     }
 
     // Step 2: Analyze and structure the data
-    console.log('🧠 Analyzing and structuring data...');
+    console.log('🧠 Step 2: Analyzing and structuring data...');
 
-    const analyzeResult = await model.generateContent(`You are a professional resume parser. Analyze the following resume/CV text and extract structured information.
+    let analyzeResult;
+    try {
+      analyzeResult = await model.generateContent(`You are a professional resume parser. Analyze the following resume/CV text and extract structured information.
 
 Return ONLY a valid JSON object (no markdown, no code blocks, no additional text) with this exact structure:
 
@@ -114,8 +155,13 @@ Rules:
 
 Document text:
 ${extractedText}`);
+    } catch (error) {
+      console.error('❌ Gemini API error during analysis:', error);
+      throw error;
+    }
 
     let jsonText = analyzeResult.response.text();
+    console.log('📝 Raw AI response length:', jsonText.length);
     
     // Clean up response - remove markdown code blocks if present
     jsonText = jsonText
@@ -124,8 +170,18 @@ ${extractedText}`);
       .trim();
 
     // Parse JSON
-    const structuredData = JSON.parse(jsonText);
-    console.log('✅ Data structured successfully');
+    let structuredData;
+    try {
+      structuredData = JSON.parse(jsonText);
+      console.log('✅ JSON parsed successfully');
+    } catch (parseError) {
+      console.error('❌ Failed to parse JSON:', parseError);
+      console.error('Raw response:', jsonText.substring(0, 500));
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to parse AI response. Please try again.',
+      });
+    }
 
     // Transform to match your backend schema
     const transformedData = {
@@ -162,6 +218,8 @@ ${extractedText}`);
       })),
     };
 
+    console.log('✅ Document analysis complete!');
+
     res.json({
       success: true,
       data: transformedData,
@@ -169,19 +227,27 @@ ${extractedText}`);
 
   } catch (error) {
     console.error('❌ Document analysis error:', error);
+    console.error('Error stack:', error.stack);
     
     // Handle specific Gemini errors
     let errorMessage = 'Failed to analyze document';
+    let statusCode = 500;
     
-    if (error.message?.includes('API key')) {
+    if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
       errorMessage = 'Invalid or missing Google API key';
-    } else if (error.message?.includes('quota')) {
+      statusCode = 500;
+    } else if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
       errorMessage = 'API quota exceeded. Please try again later.';
+      statusCode = 429;
     } else if (error.message?.includes('parse')) {
       errorMessage = 'Failed to parse AI response. Please try again.';
+      statusCode = 500;
+    } else if (error.message?.includes('timeout')) {
+      errorMessage = 'Request timeout. Please try again.';
+      statusCode = 504;
     }
 
-    res.status(500).json({
+    res.status(statusCode).json({
       success: false,
       error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
@@ -190,69 +256,108 @@ ${extractedText}`);
 });
 
 /**
- * GET /api/document/test
+ * GET /test
  * Test endpoint to verify Gemini API is working
  */
 router.get('/test', async (req, res) => {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Check if API key is set
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'dummy-key') {
+      return res.status(500).json({
+        success: false,
+        error: 'GOOGLE_API_KEY is not set in environment variables',
+        instructions: 'Add GOOGLE_API_KEY to your Render environment variables',
+      });
+    }
+
+    console.log('🧪 Testing Gemini API...');
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
     const result = await model.generateContent('Say "API is working!" in JSON format');
     const response = result.response.text();
+    
+    console.log('✅ Gemini API test successful');
     
     res.json({
       success: true,
       message: 'Gemini API is configured correctly',
       response: response,
+      apiKeySet: true,
     });
   } catch (error) {
+    console.error('❌ Gemini API test failed:', error);
+    
+    let errorDetails = error.message;
+    let instructions = '';
+    
+    if (error.message?.includes('API_KEY_INVALID')) {
+      errorDetails = 'Invalid API key';
+      instructions = 'Please check your GOOGLE_API_KEY in Render environment variables';
+    } else if (error.message?.includes('quota')) {
+      errorDetails = 'API quota exceeded';
+      instructions = 'Wait a few moments and try again';
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Gemini API test failed',
-      details: error.message,
+      details: errorDetails,
+      instructions: instructions || 'Check Render logs for more details',
     });
   }
+});
+
+/**
+ * GET /health
+ * Simple health check endpoint
+ */
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Document analysis service is running',
+    timestamp: new Date().toISOString(),
+    apiKeyConfigured: !!process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'dummy-key',
+  });
 });
 
 module.exports = router;
 
 // ============================================
-// SETUP INSTRUCTIONS
+// DEPLOYMENT CHECKLIST FOR RENDER
 // ============================================
 
 /*
-1. Install required package:
+✅ 1. Install required package:
    npm install @google/generative-ai
 
-2. Get your FREE API key:
+✅ 2. Get your FREE API key:
    - Go to: https://aistudio.google.com/app/apikey
    - Click "Create API Key"
    - Copy the key
 
-3. Add to your .env file:
-   GOOGLE_API_KEY=your_api_key_here
+✅ 3. Add to Render Environment Variables:
+   - Go to: Render Dashboard → Your Service → Environment
+   - Add variable: GOOGLE_API_KEY = your_api_key_here
+   - Save changes (this will trigger a redeploy)
 
-4. Add to your main app.js or server.js:
+✅ 4. Add to your main app.js or server.js:
    const documentAnalysisRoutes = require('./routes/document-analysis');
    app.use('/api/document', documentAnalysisRoutes);
 
-5. Test the API:
-   GET http://localhost:3000/api/document/test
-
-6. Use in your app:
-   POST http://localhost:3000/api/document/analyze
-   Body: {
-     "base64Data": "base64_encoded_pdf_or_image",
-     "mimeType": "application/pdf" or "image/jpeg"
+✅ 5. Ensure package.json includes:
+   "dependencies": {
+     "@google/generative-ai": "^0.21.0"
    }
 
-SUPPORTED FILE TYPES:
-- PDF: application/pdf
-- Images: image/jpeg, image/png, image/webp
-- Documents: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+✅ 6. Test the API after deployment:
+   GET https://your-app.onrender.com/api/document/health
+   GET https://your-app.onrender.com/api/document/test
 
-FREE TIER LIMITS:
-- 15 requests per minute
-- 1 million tokens per minute
-- 1,500 requests per day
-- No credit card required!
+✅ 7. Check Render logs:
+   - Look for: "✅ Gemini API is configured correctly"
+   - Or: "⚠️  WARNING: GOOGLE_API_KEY is not set"
+
+TROUBLESHOOTING:
+- If you see API key warnings, check Render Environment Variables
+- If 500 errors persist, check Render logs for detailed error messages
+- Test the /test endpoint in your browser first before using the app
 */
