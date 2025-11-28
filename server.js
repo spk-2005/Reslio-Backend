@@ -12,6 +12,7 @@ const portfolioRoutes = require('./routes/portfolios');
 const exportRoutes = require('./routes/export');
 const informationRoutes = require('./routes/information');
 const profileRoutes = require('./routes/profile');
+const documentAnalysisRoutes = require('./routes/document-analysis');
 
 const app = express();
 
@@ -37,21 +38,25 @@ app.get('/', (req, res) => {
   });
 });
 
-const documentAnalysisRoutes = require('./routes/document-analysis');
+// Create a dedicated router for protected routes
+const protectedRouter = express.Router();
+
+// Apply the authentication middleware to this router
+protectedRouter.use(authenticateUser);
+
+// Mount all protected routes onto the protectedRouter
+protectedRouter.use('/resumes', resumeRoutes);
+protectedRouter.use('/portfolios', portfolioRoutes);
+protectedRouter.use('/profile', profileRoutes);
+protectedRouter.use('/information', informationRoutes);
+protectedRouter.use('/export', exportRoutes);
+protectedRouter.use('/document', documentAnalysisRoutes);
 
 // Mount all routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/templates', templateRoutes); // No auth required
-
-// Protected routes
-app.use('/api', authenticateUser, [resumeRoutes, portfolioRoutes, profileRoutes, informationRoutes, exportRoutes, documentAnalysisRoutes]);
-app.use('/api/resumes', resumeRoutes);
-app.use('/api/portfolios', portfolioRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/information', informationRoutes);
-app.use('/api/export', exportRoutes);
-app.use('/api/document', documentAnalysisRoutes);
+app.use('/api', protectedRouter); // Mount the protected router under /api
 
 // Error handler
 app.use((err, req, res, next) => {
