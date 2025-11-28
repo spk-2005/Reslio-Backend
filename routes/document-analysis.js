@@ -45,7 +45,7 @@ router.post('/analyze', async (req, res) => {
     // Use Gemini 1.5 Flash (fast and free)
     // Updated model name for v1beta API
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-1.5-flash',
       generationConfig: {
         temperature: 0.2,
       },
@@ -271,7 +271,7 @@ router.get('/test', async (req, res) => {
     }
 
     console.log('🧪 Testing Gemini API...');
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent('Say "API is working!" in JSON format');
     const response = result.response.text();
     
