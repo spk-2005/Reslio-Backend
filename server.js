@@ -5,20 +5,21 @@ const connectDB = require('./config/database');
 const { authenticateUser } = require('./middleware/auth');
 
 const authRoutes = require('./routes/auth');
-const templateRoutes = require('./routes/templates'); // Simple import now
+const templateRoutes = require('./routes/templates');
 const userRoutes = require('./routes/users');
 const resumeRoutes = require('./routes/resumes');
 const portfolioRoutes = require('./routes/portfolios');
 const exportRoutes = require('./routes/export');
 const informationRoutes = require('./routes/information');
 const profileRoutes = require('./routes/profile');
+const documentAnalysisRoutes = require('./routes/document-analysis');
 
 const app = express();
 
 connectDB();
 
 app.use(cors({
-  origin: '*', // Allow all origins
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -37,16 +38,18 @@ app.get('/', (req, res) => {
       resumes: '/api/resumes',
       portfolios: '/api/portfolios',
       export: '/api/export',
+      document: '/api/document', // Added
     },
   });
 });
-const documentAnalysisRoutes = require('./routes/document-analysis');
-app.use('/api/document', documentAnalysisRoutes);
-// Mount all routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/templates', templateRoutes); // No auth required
 
+// Public routes (no authentication required)
+app.use('/api/auth', authRoutes);
+app.use('/api/templates', templateRoutes);
+app.use('/api/document', documentAnalysisRoutes); // 👈 No auth needed
+
+// Protected routes (authentication required)
+app.use('/api/users');
 app.use('/api/resumes', authenticateUser, resumeRoutes);
 app.use('/api/portfolios', authenticateUser, portfolioRoutes);
 app.use('/api/profile', authenticateUser, profileRoutes);
@@ -65,8 +68,9 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🔑 Google API Key configured: ${!!process.env.GOOGLE_API_KEY}`);
 });
 
 module.exports = app;
