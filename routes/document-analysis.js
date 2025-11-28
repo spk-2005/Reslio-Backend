@@ -1,6 +1,5 @@
 // backend/routes/document-analysis.js
-// Document analysis using FREE Google Gemini API
-// IMPROVED VERSION with better error handling
+// Document analysis using Google Gemini API
 
 const express = require('express');
 const router = express.Router();
@@ -9,10 +8,9 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Validate API key on startup
 if (!process.env.GOOGLE_API_KEY) {
   console.error('⚠️  WARNING: GOOGLE_API_KEY is not set in environment variables!');
-  console.error('📝 Add GOOGLE_API_KEY to your Render environment variables');
 }
 
-// Initialize Gemini with your API key
+// Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'dummy-key');
 
 /**
@@ -25,7 +23,7 @@ router.post('/analyze', async (req, res) => {
     if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'dummy-key') {
       return res.status(500).json({
         success: false,
-        error: 'Google API key is not configured. Please add GOOGLE_API_KEY to environment variables.',
+        error: 'Google API key is not configured.',
       });
     }
 
@@ -38,11 +36,11 @@ router.post('/analyze', async (req, res) => {
       });
     }
 
-    console.log('📄 Analyzing document with Gemini');
+    console.log('📄 Analyzing document with Gemini 2.5 Flash');
     console.log('📦 MIME type:', mimeType);
     console.log('📏 Base64 length:', base64Data.length);
 
-    // Use Gemini 2.5 Flash - stable and fast model from your available models
+    // Use Gemini 2.5 Flash
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-2.5-flash',
       generationConfig: {
@@ -50,8 +48,8 @@ router.post('/analyze', async (req, res) => {
       },
     });
 
-    // Step 1: Extract text from document
-    console.log('🔍 Step 1: Extracting text from document...');
+    // Step 1: Extract text
+    console.log('🔍 Step 1: Extracting text...');
     
     let extractResult;
     try {
@@ -67,19 +65,12 @@ router.post('/analyze', async (req, res) => {
         },
       ]);
     } catch (error) {
-      console.error('❌ Gemini API error during text extraction:', error);
-      
-      if (error.message?.includes('API_KEY_INVALID')) {
-        return res.status(500).json({
-          success: false,
-          error: 'Invalid Google API key. Please check your GOOGLE_API_KEY environment variable.',
-        });
-      }
+      console.error('❌ Text extraction error:', error);
       
       if (error.message?.includes('leaked') || error.message?.includes('Forbidden')) {
         return res.status(403).json({
           success: false,
-          error: 'API key has been compromised. Please create a new API key at https://aistudio.google.com/app/apikey and update your environment variables.',
+          error: 'API key has been compromised. Please create a new API key.',
         });
       }
       
@@ -99,16 +90,14 @@ router.post('/analyze', async (req, res) => {
     if (!extractedText || extractedText.trim().length < 50) {
       return res.status(400).json({
         success: false,
-        error: 'Could not extract sufficient text from document. Please ensure the document contains readable text.',
+        error: 'Could not extract sufficient text from document.',
       });
     }
 
-    // Step 2: Analyze and structure the data
+    // Step 2: Analyze and structure
     console.log('🧠 Step 2: Analyzing and structuring data...');
 
-    let analyzeResult;
-    try {
-      analyzeResult = await model.generateContent(`You are a professional resume parser. Analyze the following resume/CV text and extract structured information.
+    const analyzeResult = await model.generateContent(`You are a professional resume parser. Analyze the following resume/CV text and extract structured information.
 
 Return ONLY a valid JSON object (no markdown, no code blocks, no additional text) with this exact structure:
 
@@ -153,23 +142,17 @@ Return ONLY a valid JSON object (no markdown, no code blocks, no additional text
 }
 
 Rules:
-- Extract only what is explicitly mentioned in the document
+- Extract only what is explicitly mentioned
 - Use null for missing fields
 - Use empty arrays [] for missing array fields
-- Ensure all strings are properly escaped
 - Return valid JSON only, no explanation
 
 Document text:
 ${extractedText}`);
-    } catch (error) {
-      console.error('❌ Gemini API error during analysis:', error);
-      throw error;
-    }
 
     let jsonText = analyzeResult.response.text();
-    console.log('📝 Raw AI response length:', jsonText.length);
     
-    // Clean up response - remove markdown code blocks if present
+    // Clean up response
     jsonText = jsonText
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
@@ -189,7 +172,7 @@ ${extractedText}`);
       });
     }
 
-    // Transform to match your backend schema
+    // Transform to match backend schema
     const transformedData = {
       personalDetails: {
         name: structuredData.name || '',
@@ -233,189 +216,67 @@ ${extractedText}`);
 
   } catch (error) {
     console.error('❌ Document analysis error:', error);
-    console.error('Error stack:', error.stack);
     
-    // Handle specific Gemini errors
     let errorMessage = 'Failed to analyze document';
     let statusCode = 500;
     
     if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
       errorMessage = 'Invalid or missing Google API key';
-      statusCode = 500;
     } else if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
       errorMessage = 'API quota exceeded. Please try again later.';
       statusCode = 429;
-    } else if (error.message?.includes('parse')) {
-      errorMessage = 'Failed to parse AI response. Please try again.';
-      statusCode = 500;
-    } else if (error.message?.includes('timeout')) {
-      errorMessage = 'Request timeout. Please try again.';
-      statusCode = 504;
     }
 
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 });
 
 /**
  * GET /test
- * Test endpoint to verify Gemini API is working
+ * Test endpoint
  */
 router.get('/test', async (req, res) => {
   try {
-    // Check if API key is set
     if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'dummy-key') {
       return res.status(500).json({
         success: false,
-        error: 'GOOGLE_API_KEY is not set in environment variables',
-        instructions: 'Add GOOGLE_API_KEY to your Render environment variables',
+        error: 'GOOGLE_API_KEY is not set',
       });
     }
 
-    console.log('🧪 Testing Gemini API...');
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContent('Say "API is working!" in JSON format');
     const response = result.response.text();
-    
-    console.log('✅ Gemini API test successful');
     
     res.json({
       success: true,
       message: 'Gemini API is configured correctly',
       response: response,
-      apiKeySet: true,
     });
   } catch (error) {
-    console.error('❌ Gemini API test failed:', error);
-    
-    let errorDetails = error.message;
-    let instructions = '';
-    
-    if (error.message?.includes('API_KEY_INVALID')) {
-      errorDetails = 'Invalid API key';
-      instructions = 'Please check your GOOGLE_API_KEY in Render environment variables';
-    } else if (error.message?.includes('quota')) {
-      errorDetails = 'API quota exceeded';
-      instructions = 'Wait a few moments and try again';
-    }
-    
     res.status(500).json({
       success: false,
       error: 'Gemini API test failed',
-      details: errorDetails,
-      instructions: instructions || 'Check Render logs for more details',
+      details: error.message,
     });
   }
 });
 
 /**
  * GET /health
- * Simple health check endpoint
+ * Health check
  */
 router.get('/health', (req, res) => {
   res.json({
     success: true,
     message: 'Document analysis service is running',
     timestamp: new Date().toISOString(),
-    apiKeyConfigured: !!process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'dummy-key',
+    apiKeyConfigured: !!process.env.GOOGLE_API_KEY,
   });
 });
 
-/**
- * GET /list-models
- * List all available models for your API key
- */
-router.get('/list-models', async (req, res) => {
-  try {
-    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'dummy-key') {
-      return res.status(500).json({
-        success: false,
-        error: 'GOOGLE_API_KEY is not set in environment variables',
-      });
-    }
-
-    // Fetch available models directly from Google API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GOOGLE_API_KEY}`
-    );
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return res.status(response.status).json({
-        success: false,
-        error: 'Failed to fetch models',
-        details: data,
-      });
-    }
-
-    // Filter for models that support generateContent
-    const availableModels = data.models
-      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
-      .map(m => ({
-        name: m.name,
-        displayName: m.displayName,
-        description: m.description,
-      }));
-
-    res.json({
-      success: true,
-      models: availableModels,
-      count: availableModels.length,
-    });
-  } catch (error) {
-    console.error('Error listing models:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to list models',
-      details: error.message,
-    });
-  }
-});
-
+// IMPORTANT: Must export the router
 module.exports = router;
-
-// ============================================
-// DEPLOYMENT CHECKLIST FOR RENDER
-// ============================================
-
-/*
-✅ 1. Install required package:
-   npm install @google/generative-ai
-
-✅ 2. Get your FREE API key:
-   - Go to: https://aistudio.google.com/app/apikey
-   - Click "Create API Key"
-   - Copy the key
-
-✅ 3. Add to Render Environment Variables:
-   - Go to: Render Dashboard → Your Service → Environment
-   - Add variable: GOOGLE_API_KEY = your_api_key_here
-   - Save changes (this will trigger a redeploy)
-
-✅ 4. Add to your main app.js or server.js:
-   const documentAnalysisRoutes = require('./routes/document-analysis');
-   app.use('/api/document', documentAnalysisRoutes);
-
-✅ 5. Ensure package.json includes:
-   "dependencies": {
-     "@google/generative-ai": "^0.21.0"
-   }
-
-✅ 6. Test the API after deployment:
-   GET https://your-app.onrender.com/api/document/health
-   GET https://your-app.onrender.com/api/document/test
-
-✅ 7. Check Render logs:
-   - Look for: "✅ Gemini API is configured correctly"
-   - Or: "⚠️  WARNING: GOOGLE_API_KEY is not set"
-
-TROUBLESHOOTING:
-- If you see API key warnings, check Render Environment Variables
-- If 500 errors persist, check Render logs for detailed error messages
-- Test the /test endpoint in your browser first before using the app
-*/

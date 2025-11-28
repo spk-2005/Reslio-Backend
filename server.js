@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
       resumes: '/api/resumes',
       portfolios: '/api/portfolios',
       export: '/api/export',
-      document: '/api/document', // Added
+      document: '/api/document',
     },
   });
 });
@@ -46,10 +46,10 @@ app.get('/', (req, res) => {
 // Public routes (no authentication required)
 app.use('/api/auth', authRoutes);
 app.use('/api/templates', templateRoutes);
-app.use('/api/document', documentAnalysisRoutes); // 👈 No auth needed
+app.use('/api/document', documentAnalysisRoutes);
 
 // Protected routes (authentication required)
-app.use('/api/users');
+app.use('/api/users', authenticateUser, userRoutes); // 👈 FIXED!
 app.use('/api/resumes', authenticateUser, resumeRoutes);
 app.use('/api/portfolios', authenticateUser, portfolioRoutes);
 app.use('/api/profile', authenticateUser, profileRoutes);
