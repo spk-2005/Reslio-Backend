@@ -76,6 +76,13 @@ router.post('/analyze', async (req, res) => {
         });
       }
       
+      if (error.message?.includes('leaked') || error.message?.includes('Forbidden')) {
+        return res.status(403).json({
+          success: false,
+          error: 'API key has been compromised. Please create a new API key at https://aistudio.google.com/app/apikey and update your environment variables.',
+        });
+      }
+      
       if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
         return res.status(429).json({
           success: false,
