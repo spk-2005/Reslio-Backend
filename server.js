@@ -47,9 +47,9 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/document', documentAnalysisRoutes);
+app.use('/api/users', userRoutes); // 👈 No auth - public access
 
 // Protected routes (authentication required)
-app.use('/api/users', authenticateUser, userRoutes); // 👈 FIXED!
 app.use('/api/resumes', authenticateUser, resumeRoutes);
 app.use('/api/portfolios', authenticateUser, portfolioRoutes);
 app.use('/api/profile', authenticateUser, profileRoutes);
