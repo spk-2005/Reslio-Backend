@@ -36,18 +36,22 @@ app.get('/', (req, res) => {
     },
   });
 });
+
 const documentAnalysisRoutes = require('./routes/document-analysis');
-app.use('/api/document', documentAnalysisRoutes);
+
 // Mount all routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/templates', templateRoutes); // No auth required
 
-app.use('/api/resumes', authenticateUser, resumeRoutes);
-app.use('/api/portfolios', authenticateUser, portfolioRoutes);
-app.use('/api/profile', authenticateUser, profileRoutes);
-app.use('/api/information', authenticateUser, informationRoutes);
-app.use('/api/export', authenticateUser, exportRoutes);
+// Protected routes
+app.use('/api', authenticateUser, [resumeRoutes, portfolioRoutes, profileRoutes, informationRoutes, exportRoutes, documentAnalysisRoutes]);
+app.use('/api/resumes', resumeRoutes);
+app.use('/api/portfolios', portfolioRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/information', informationRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/document', documentAnalysisRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
