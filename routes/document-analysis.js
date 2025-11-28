@@ -42,14 +42,42 @@ router.post('/analyze', async (req, res) => {
     console.log('📦 MIME type:', mimeType);
     console.log('📏 Base64 length:', base64Data.length);
 
-    // Use Gemini 1.5 Flash (fast and free)
-    // Updated model name for v1beta API
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        temperature: 0.2,
-      },
-    });
+    // Use Gemini 2.0 Flash or 1.5 Flash (try multiple model names for compatibility)
+    // Different API versions use different model naming conventions
+    let model;
+    const modelNames = [
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash-002',
+      'gemini-1.5-flash-001', 
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+    ];
+    
+    let lastError;
+    for (const modelName of modelNames) {
+      try {
+        console.log(`🧪 Trying model: ${modelName}`);
+        model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            temperature: 0.2,
+          },
+        });
+        
+        // Test the model with a simple call
+        await model.generateContent('test');
+        console.log(`✅ Using model: ${modelName}`);
+        break;
+      } catch (error) {
+        console.log(`❌ Model ${modelName} failed:`, error.message);
+        lastError = error;
+        continue;
+      }
+    }
+    
+    if (!model) {
+      throw new Error(`No working Gemini model found. Last error: ${lastError?.message}`);
+    }
 
     // Step 1: Extract text from document
     console.log('🔍 Step 1: Extracting text from document...');
@@ -271,7 +299,7 @@ router.get('/test', async (req, res) => {
     }
 
     console.log('🧪 Testing Gemini API...');
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'models/gemini-1.5-flash' });
     const result = await model.generateContent('Say "API is working!" in JSON format');
     const response = result.response.text();
     
@@ -317,6 +345,58 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     apiKeyConfigured: !!process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'dummy-key',
   });
+});
+
+/**
+ * GET /list-models
+ * List all available models for your API key
+ */
+router.get('/list-models', async (req, res) => {
+  try {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'dummy-key') {
+      return res.status(500).json({
+        success: false,
+        error: 'GOOGLE_API_KEY is not set in environment variables',
+      });
+    }
+
+    // Fetch available models directly from Google API
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GOOGLE_API_KEY}`
+    );
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        error: 'Failed to fetch models',
+        details: data,
+      });
+    }
+
+    // Filter for models that support generateContent
+    const availableModels = data.models
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => ({
+        name: m.name,
+        displayName: m.displayName,
+        description: m.description,
+      }));
+
+    res.json({
+      success: true,
+      models: availableModels,
+      count: availableModels.length,
+    });
+  } catch (error) {
+    console.error('Error listing models:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to list models',
+      details: error.message,
+    });
+  }
 });
 
 module.exports = router;
